@@ -1,0 +1,15 @@
+# Object files.
+*.o
+*.o.lst
+
+# Various output files
+*.srec
+*.dump
+*.elf
+*.d
+
+# Library (archive) files.
+*.a
+
+# GCC ARM Toolchain
+gcc-arm*
