@@ -1,5 +1,4 @@
 #include "mbed.h"
-#include <string.h>
 #include "TFC.h"
 #include "Telemetry.h"
 
@@ -7,8 +6,6 @@ struct TM_state {
 	float throttle = 0.0;
 	float direction = 0.0;
 	uint8_t tlm_frames[3] = {0, 0, 0};
-	uint16_t *image;
-	int16_t *deriv_image;
 };
 
 void process(TM_state *state, TM_msg *msg);
@@ -83,10 +80,6 @@ int main()
 			// Correct side effect
 			deriv_image[127] = deriv_image[126];
 			
-			// Update telemetry data
-			state.image = image;
-			state.deriv_image = deriv_image;
-			
 			cam_frames++;
 		}
 		
@@ -119,9 +112,9 @@ int main()
 			bPB = TFC_ReadPushButton(0);
 			if (bPB && !bPB_old) {
 				for (uint8_t i = 0; i < 128; i++) {
-					TM.pub_i16("cam", state.image[i]);
+					TM.pub_i16("cam", image[i]);
 					wait_ms(1);
-					TM.pub_i16("camd", state.deriv_image[i]);
+					TM.pub_i16("camd", deriv_image[i]);
 					wait_ms(1);
 				}
 				for (uint8_t i = 0; i < 128; i++) {
