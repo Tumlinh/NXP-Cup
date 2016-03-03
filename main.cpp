@@ -7,8 +7,8 @@ struct TM_state {
 	float throttle = 0.0;
 	float direction = 0.0;
 	uint8_t tlm_frames[3] = {0, 0, 0};
-	uint16_t image = 0;
-	int16_t deriv_image = 0;
+	uint16_t *image;
+	int16_t *deriv_image;
 };
 
 void process(TM_state *state, TM_msg *msg);
@@ -18,11 +18,12 @@ int main()
 	float servo_pos = 0.0;
 	float avg_brightness = 0.0;
 	int exposure_time_us = 8000;
+	uint16_t image[128];
 	int16_t deriv_image[128];
 	int cam_frames = 0, fps = 0;
 	int ticks = 0;
-	uint8_t info_interval = 10;
-	bool bLed = false;
+	uint16_t info_interval = 100;
+	bool bLed = false, bPB = false, bPB_old = false;
 	
 	Timer tm_tick, tm_fps_upd, tm_servo_upd, tm_motor_upd, tm_camera, tm_info, tm_tlm, tm_led;
 	
@@ -35,9 +36,10 @@ int main()
 	Telemetry TM(115200);
 	TM_state state;
 	TM.sub(process, &state);
+	TM.pub_i16("camd", 0);
 	
 	// Activate the engines
-	TFC_HBRIDGE_ENABLE;
+	//TFC_HBRIDGE_ENABLE;
 	
 	// Initialize timers
 	tm_fps_upd.start();
@@ -59,7 +61,7 @@ int main()
 		// Servo mode 
 		if (TFC_GetDIP_Switch() &0x01 && tm_servo_upd.read_ms() > 10) {
 			tm_servo_upd.reset();
-			// TODO: check value of direction?
+			// TODO: correct value of direction?
 			TFC_SetServo(0, state.direction);
 		}
 		
@@ -68,20 +70,22 @@ int main()
 			//tm_camera.reset();
 			TFC_LineScanImageReady = 0;
 			
+			// Copy image to buffer
+			for (uint8_t i = 0; i < 128; i++) {
+				image[i] = TFC_LineScanImage0[i];
+			}
+			
 			// Derive frame
-			uint32_t buffer = 0;
 			for (uint8_t i = 0; i < 127; i++) {
-				deriv_image[i] = TFC_LineScanImage0[i + 1] - TFC_LineScanImage0[i];
-				buffer += TFC_LineScanImage0[i];
+				deriv_image[i] = image[i + 1] - image[i];
 			}
 			
 			// Correct side effect
 			deriv_image[127] = deriv_image[126];
-			buffer += TFC_LineScanImage0[127];
 			
 			// Update telemetry data
-			state.image = TFC_LineScanImage0[63];
-			state.deriv_image = deriv_image[63];
+			state.image = image;
+			state.deriv_image = deriv_image;
 			
 			cam_frames++;
 		}
@@ -104,16 +108,29 @@ int main()
 			
 			// Send data
 			TM.pub_f32("bat", TFC_ReadBatteryVoltage());
-			TM.pub_u16("cam", state.image);
-			TM.pub_i16("cam2", state.deriv_image);
-			TM.pub_u8("fps", (uint8_t) fps);
 			TM.pub_f32("direction", state.direction);
-			
+			TM.pub_u8("fps", (uint8_t) fps);
 			float avg_tick_t = (float) info_interval / (float) ticks * 1000.0;
 			ticks = 0;
 			TM.pub_u8("tick", (uint8_t) avg_tick_t);
-			
 			TM.pub_u8("tlm0", (uint8_t) state.tlm_frames[0]);
+			
+			// Send images on PB pressure
+			bPB = TFC_ReadPushButton(0);
+			if (bPB && !bPB_old) {
+				for (uint8_t i = 0; i < 128; i++) {
+					TM.pub_i16("cam", state.image[i]);
+					wait_ms(1);
+					TM.pub_i16("camd", state.deriv_image[i]);
+					wait_ms(1);
+				}
+				for (uint8_t i = 0; i < 128; i++) {
+					TM.pub_u8("cam", 0);
+					TM.pub_u8("camd", 0);
+					wait_ms(1);
+				}
+			}
+			bPB_old = bPB;
 		}
 		
 		// Update average fps
@@ -132,15 +149,11 @@ void process(TM_state *state, TM_msg *msg)
 	state->tlm_frames[0]++;
 	if (msg->type == TM_float32) {
 		float buffer;
-		if (strcmp("throttle", msg->topic) == 0) {
-			if (emplace_f32(msg, &buffer)) {
+		if (strcmp("throttle", msg->topic) == 0)
+			if (emplace_f32(msg, &buffer))
 				state->throttle = buffer;
-			}
-		}
-		else if (strcmp("direction", msg->topic) == 0) {
-			if (emplace_f32(msg, &buffer)) {
+		else if (strcmp("direction", msg->topic) == 0)
+			if (emplace_f32(msg, &buffer))
 				state->direction = buffer;
-			}
-		}
         }
 }
