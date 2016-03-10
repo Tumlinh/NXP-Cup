@@ -17,6 +17,7 @@ int main()
 	int exposure_time_us = 8000;
 	uint16_t image[128];
 	int16_t deriv_image[128];
+	float y[128];
 	int cam_frames = 0, fps = 0;
 	int ticks = 0;
 	uint16_t info_interval = 100;
@@ -33,7 +34,6 @@ int main()
 	Telemetry TM(115200);
 	TM_state state;
 	TM.sub(process, &state);
-	TM.pub_i16("camd", 0);
 	
 	// Activate the engines
 	//TFC_HBRIDGE_ENABLE;
@@ -80,6 +80,19 @@ int main()
 			// Correct side effect
 			deriv_image[127] = deriv_image[126];
 			
+			// Filter derivative frame (IIR low-pass filter)
+			float b[] = {0.1439739168, 0.2879478337, 0.1439739168};
+			float a[] = {0, -0.2809457379, 0.1855605367};
+			y[0] = 0;
+			y[1] = 0;
+			for (uint8_t n = 2; n < 128; n++) {
+				y[n] = 0;
+				for (uint8_t i = 0; i < sizeof(b) / sizeof(*b); i++)
+					y[n] += b[i] * deriv_image[n - i];
+				for (uint8_t i = 0; i < sizeof(a) / sizeof(*a); i++)
+					y[n] -= a[i] * y[n - i];
+			}
+			
 			cam_frames++;
 		}
 		
@@ -110,18 +123,29 @@ int main()
 			
 			// Send images on PB pressure
 			bPB = TFC_ReadPushButton(0);
+			char topic1 [] = "cam:000";
+			char topic2 [] = "camd:000";
+			char topic3 [] = "camf:000";
 			if (bPB && !bPB_old) {
 				for (uint8_t i = 0; i < 128; i++) {
+					sprintf(topic1, "cam:%u", i);
 					TM.pub_i16("cam", image[i]);
 					wait_ms(1);
+					sprintf(topic2, "camd:%u", i);
 					TM.pub_i16("camd", deriv_image[i]);
 					wait_ms(1);
-				}
-				for (uint8_t i = 0; i < 128; i++) {
-					TM.pub_u8("cam", 0);
-					TM.pub_u8("camd", 0);
+					sprintf(topic3, "camf:%u", i);
+					TM.pub_f32("camf", y[i]);
 					wait_ms(1);
 				}
+				/*for (uint8_t i = 0; i < 128; i++) {
+					TM.pub_i16("cam", 0);
+					wait_ms(1);
+					TM.pub_i16("camd", 0);
+					wait_ms(1);
+					TM.pub_f32("camf", 0);
+					wait_ms(1);
+				}*/
 			}
 			bPB_old = bPB;
 		}
