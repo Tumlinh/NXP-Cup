@@ -1,5 +1,5 @@
 PROJECT = TFC
-OBJECTS = ./main.o ./BufferedSerial/Buffer.o ./BufferedSerial/BufferedSerial.o ./FRDM-TFC/TFC.o ./Telemetry/Telemetry.o ./Telemetry/c_api/crc16.o ./Telemetry/c_api/framing.o ./Telemetry/c_api/telemetry.o
+OBJECTS = ./main.o ./camera.o ./BufferedSerial/Buffer.o ./BufferedSerial/BufferedSerial.o ./FRDM-TFC/TFC.o ./Telemetry/Telemetry.o ./Telemetry/c_api/crc16.o ./Telemetry/c_api/framing.o ./Telemetry/c_api/telemetry.o
 SYS_OBJECTS = ./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM/board.o ./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM/cmsis_nvic.o ./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM/mbed_overrides.o ./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM/retarget.o ./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM/startup_MKL25Z4.o ./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM/system_MKL25Z4.o
 INCLUDE_PATHS = -I. -I./BufferedSerial -I./FRDM-TFC -I./Telemetry -I./mbed -I./mbed/TARGET_KL25Z -I./mbed/TARGET_KL25Z/TARGET_Freescale -I./mbed/TARGET_KL25Z/TARGET_Freescale/TARGET_KLXX -I./mbed/TARGET_KL25Z/TARGET_Freescale/TARGET_KLXX/TARGET_KL25Z -I./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM
 LIBRARY_PATHS = -L./mbed/TARGET_KL25Z/TOOLCHAIN_GCC_ARM
